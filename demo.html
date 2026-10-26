@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>智会通 · AI智能会议纪要系统 - 演示版</title>
+  
+  <!-- Ant Design CSS (CDN) -->
+  <link rel="stylesheet" href="https://static-nginx-online.fbcontent.cn/musk-web-components-static/antd/dist/css/antd.min.css" />
+  
+  <!-- ECharts -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+  
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; line-height: 1.5; }
+    .app { display: flex; flex-direction: column; min-height: 100vh; }
+    
+    /* Header */
+    .header { background: #1890ff; color: #fff; padding: 0 24px; height: 64px; display: flex; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .header h1 { font-size: 20px; font-weight: 500; margin-right: 24px; }
+    .header .badge { font-size: 12px; opacity: 0.9; }
+    
+    /* Layout */
+    .main { display: flex; flex: 1; }
+    .sidebar { width: 200px; background: #fafafa; border-right: 1px solid #e8e8e8; padding: 16px; }
+    .nav-item { padding: 10px 12px; margin-bottom: 4px; border-radius: 4px; cursor: pointer; color: #333; text-decoration: none; display: block; transition: background 0.2s; }
+    .nav-item:hover, .nav-item.active { background: #e6f7ff; color: #1890ff; }
+    .content { flex: 1; padding: 24px; max-width: 1200px; margin: 0 auto; width: 100%; }
+    
+    /* Card style */
+    .card { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); padding: 24px; margin-bottom: 16px; }
+    .card h3 { color: #1890ff; margin-bottom: 16px; font-size: 18px; border-bottom: 2px solid #e6f7ff; padding-bottom: 8px; }
+    
+    /* Buttons */
+    button { background: #1890ff; color: #fff; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; margin-right: 8px; }
+    button:hover { background: #40a9ff; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    
+    /* Text areas */
+    .result-area, .segments-area { margin-top: 16px; }
+    .transcript-text { background: #fafafa; border: 1px solid #e8e8e8; border-radius: 4px; padding: 16px; max-height: 200px; overflow-y: auto; font-family: monospace; white-space: pre-wrap; font-size: 14px; line-height: 1.6; }
+    
+    .segment-item { background: #f5f5f5; border-left: 3px solid #1890ff; padding: 12px; margin-bottom: 8px; border-radius: 4px; }
+    .speaker-tag { display: inline-block; background: #1890ff; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 12px; font-weight: 500; margin-right: 8px; }
+    .time-tag { color: #888; font-size: 12px; margin-right: 8px; }
+    
+    /* Task table */
+    .task-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    .task-table th, .task-table td { border: 1px solid #e8e8e8; padding: 12px; text-align: left; }
+    .task-table th { background: #f7f7f7; font-weight: 500; }
+    
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 12px; margin-right: 4px; }
+    .tag-blue { background: #e6f7ff; color: #1890ff; }
+    .tag-geekblue { background: #e6f7ff; color: #1890ff; }
+    .tag-green { background: #f6ffed; color: #389e0d; }
+    .tag-red { background: #fff2f0; color: #f5222d; }
+    
+    /* Footer */
+    .footer { text-align: center; padding: 16px; background: #fff; border-top: 1px solid #e8e8e8; color: #888; font-size: 12px; margin-top: auto; }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e8e8e8; display: flex; flex-wrap: wrap; }
+      .nav-item { margin-right: 16px; margin-bottom: 0; }
+      .content { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <div class="header">
+      <h1>🤖 智会通 · AI智能会议纪要管理系统</h1>
+      <span class="badge">云端模式 | 无需本地大模型部署</span>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main">
+      <!-- Sidebar Navigation -->
+      <div class="sidebar">
+        <a href="#transcribe" class="nav-item active" onclick="switchTab('transcribe')">🎤 语音转写</a>
+        <a href="#summary" class="nav-item" onclick="switchTab('summary')">📝 结构化摘要</a>
+        <a href="#tasks" class="nav-item" onclick="switchTab('tasks')">📋 任务追踪</a>
+        <a href="#emotion" class="nav-item" onclick="switchTab('emotion')">💡 情绪热力</a>
+        <a href="#search" class="nav-item" onclick="switchTab('search')">🔍 知识检索</a>
+      </div>
+      
+      <!-- Content Area -->
+      <div class="content">
+        <!-- Transcribe Section -->
+        <div id="transcrete" class="tab-content">
+          <div class="card">
+            <h3>🎤 智能语音转写</h3>
+            <button id="transcribeBtn" onclick="handleTranscribe()">选择音频文件上传</button>
+            <div class="result-area" id="transcribeResult" style="display:none;">
+              <h4>转录文本：</h4>
+              <pre class="transcript-text" id="transcriptText"></pre>
+            </div>
+            <div class="segments-area" id="segmentsArea" style="display:none;">
+              <h4>分段发言记录：</h4>
+              <div id="segmentList"></div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Summary Section -->
+        <div id="summary" class="tab-content" style="display:none;">
+          <div class="card">
+            <h3>📝 AI结构化摘要</h3>
+            <p style="color: #666; margin-bottom: 16px;">基于转录文本，自动提取会议纪要五要素</p>
+            <button id="summaryBtn" onclick="handleSummary()">生成结构化摘要</button>
+            <div id="summaryResult" style="margin-top: 16px;"></div>
+          </div>
+        </div>
+        
+        <!-- Tasks Section -->
+        <div id="tasks" class="tab-content" style="display:none;">
+          <div class="card">
+            <h3>📋 任务自动追踪</h3>
+            <button onclick="handleAddTask()">+ 添加任务</button>
+            <table class="task-table">
+              <thead>
+                <tr>
+                  <th>序号</th>
+                  <th>任务内容</th>
+                  <th>负责人</th>
+                  <th>截止期</th>
+                  <th>状态</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="taskTableBody">
+                <tr>
+                  <td>1</td>
+                  <td>完成Q3项目可行性报告</td>
+                  <td>张三</td>
+                  <td>2026-08-15</td>
+                  <td><span class="tag tag-blue">待处理</span></td>
+                  <td><a href="#" style="color: #1890ff;">编辑</a> <a href="#" style="color: #f5222d;">删除</a></td>
+                </tr>
+                <tr>
+                  <td>2</td>
+                  <td>审核下月预算方案</td>
+                  <td>李四</td>
+                  <td>2026-08-10</td>
+                  <td><span class="tag tag-geekblue">进行中</span></td>
+                  <td><a href="#" style="color: #1890ff;">编辑</a> <a href="#" style="color: #f5222d;">删除</a></td>
+                </tr>
+                <tr>
+                  <td>3</td>
+                  <td>组织部门培训</td>
+                  <td>王五</td>
+                  <td>2026-08-20</td>
+                  <td><span class="tag tag-blue">待处理</span></td>
+                  <td><a href="#" style="color: #1890ff;">编辑</a> <a href="#" style="color: #f5222d;">删除</a></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        
+        <!-- Emotion Heatmap Section -->
+        <div id="emotion" class="tab-content" style="display:none;">
+          <div class="card">
+            <h3>💡 情绪热力视图（独创特色）</h3>
+            <p style="color: #666; margin-bottom: 16px;">议题 × 发言人情感矩阵，红色=强烈支持/反对，黄色=中度观点，绿色=中性，蓝色=疑问</p>
+            <button id="heatmapBtn" onclick="handleHeatmap()">生成情绪热力图</button>
+            <div id="heatmapContainer" style="margin-top: 24px; width: 100%; height: 400px;"></div>
+            <div style="margin-top: 16px; padding: 12px; background: #f5f5f5; border-radius: 4px;">
+              <strong>解读示例：</strong><br/>
+              • 红对红（高分歧）→ 需先行协调<br/>
+              • 绿绿绿（高共识）→ 可直接推进<br/>
+              • 多问号（信息不足）→ 需补充材料
+            </div>
+          </div>
+        </div>
+        
+        <!-- Search Section -->
+        <div id="search" class="tab-content" style="display:none;">
+          <div class="card">
+            <h3>🔍 会议知识库检索</h3>
+            <div style="margin-bottom: 16px;">
+              <input type="text" id="searchInput" placeholder="输入关键词搜索历史会议纪要..." style="padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; width: 300px;" />
+              <button onclick="handleSearch()" style="background: #67c23a;">搜索</button>
+            </div>
+            <div id="searchResults"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Footer -->
+    <div class="footer">
+      © 2026 GIECC · 广州市国际工程咨询有限公司 | 参赛作品：智会通 · 广州产投AI创新大赛
+    </div>
+  </div>
+  
+  <script>
+    // 页面标签切换
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabName).style.display = 'block';
+      event.target.classList.add('active');
+      
+      if (tabName === 'emotion') setTimeout(initHeatmap, 100);
+    }
+    
+    // 转写功能
+    function handleTranscribe() {
+      const btn = document.getElementById('transcribeBtn');
+      btn.textContent = '转写中...';
+      btn.disabled = true;
+      
+      setTimeout(() => {
+        const transcript = `会议记录：\n\n## 智能会议纪要\n\n**时间**：2026-07-28 14:30\n**参会者**：张三、李四、王五、赵六\n\n## 一、会议背景\n召开2026年第三季度经营分析会，审议Q3业务进展及下半年工作计划。\n\n## 二、讨论内容\n张三：本次会议主要讨论Q3计划调整。\n李四：我同意预算增加20%。\n王五：技术升级需要额外投入。赵六：招聘政策需要进一步研究。
+        
+        document.getElementById('transcriptText').textContent = transcript;
+        document.getElementById('transcribeResult').style.display = 'block';
+        
+        // 显示分段发言
+        const segments = [
+          { speaker: '张三', time: '00:00:00-00:00:15', text: '本次会议主要讨论Q3计划调整。' },
+          { speaker: '李四', time: '00:00:15-00:00:30', text: '我同意预算增加20%。' },
+          { speaker: '王五', time: '00:00:30-00:00:45', text: '技术升级需要额外投入。' },
+          { speaker: '赵六', time: '00:00:45-00:01:00', text: '招聘政策需要进一步研究。' }
+        ];
+        
+        let segmentsHtml = '';
+        segments.forEach(seg => {
+          segmentsHtml += `
+            <div class="segment-item">
+              <span class="speaker-tag">${seg.speaker}</span>
+              <span class="time-tag">[${seg.time}]</span>
+              <p>${seg.text}</p>
+            </div>
+          `;
+        });
+        document.getElementById('segmentList').innerHTML = segmentsHtml;
+        document.getElementById('segmentsArea').style.display = 'block';
+        
+        btn.textContent = '选择音频文件上传';
+        btn.disabled = false;
+        message('转写成功！', 'success');
+      }, 1500);
+    }
+    
+    // 摘要功能
+    function handleSummary() {
+      const result = document.getElementById('summaryResult');
+      result.innerHTML = `
+        <div style="border: 1px solid #e8e8e8; border-radius: 8px; padding: 16px;">
+          <h4 style="color: #1890ff; margin-bottom: 12px;">2026年第三季度经营分析会</h4>
+          <p><strong>时间：</strong>2026-07-28　<strong>地点：</strong>集团总部会议室A</p>
+          <p><strong>参会者：</strong>张三、李四、王五、赵六</p>
+          
+          <hr style="margin: 16px 0; border: 0; border-top: 1px solid #f0f0f0;" />
+          
+          <p><strong>📌 会议背景：</strong><br/>召开2026年第三季度经营分析会，审议Q3业务进展及下半年工作计划。</p>
+          
+          <p><strong>📊 讨论议题：</strong></p>
+          <ul style="margin: 8px 0 8px 24px; color: #555;">
+            <li><strong>预算调整：</strong>财务负责人建议增加20%预算用于市场拓展。</li>
+            <li><strong>Q3计划：</strong>各团队确认按部就班执行季度计划，资源已准备就绪。</li>
+            <li><strong>招聘政策：</strong>对扩大招聘规模有不同意见，需要更多研究。</li>
+          </ul>
+          
+          <p><strong>✅ 会议决策：</strong></p>
+          <ul style="margin: 8px 0 8px 24px; color: #555;">
+            <li>批准Q3计划按原方案执行</li>
+            <li>预算调整方案进一步研究后提交决策</li>
+            <li>招聘政策暂缓决定，待补充材料后再议</li>
+          </ul>
+          
+          <p><strong>📝 行动计划：</strong></p>
+          <ul style="margin: 8px 0 8px 24px; color: #555;">
+            <li><strong>张三：</strong>完成Q3项目可行性报告（2026-08-15）</li>
+            <li><strong>李四：</strong>审核下月预算方案（2026-08-10）</li>
+            <li><strong>王五：</strong>组织部门培训（2026-08-20）</li>
+          </ul>
+          
+          <p><strong>⚠️ 风险提示：</strong></p>
+          <ul style="margin: 8px 0 8px 24px; color: #f5222d;">
+            <li>现金流紧张可能影响预算调整</li>
+            <li>招聘政策需平衡业务需求与成本控制</li>
+          </ul>
+        </div>
+      `;
+      message('摘要生成成功！', 'success');
+    }
+    
+    // 热力图初始化
+    function initHeatmap() {
+      const chartDom = document.getElementById('heatmapContainer');
+      if (!chartDom) return;
+      const myChart = echarts.init(chartDom);
+      
+      const option = {
+        tooltip: { position: 'top' },
+        grid: { height: '60%', top: '10%' },
+        xAxis: {
+          type: 'category',
+          data: ['预算调整', 'Q3计划', '招聘政策'],
+          name: '议题',
+          nameLocation: 'middle',
+          nameGap: 25
+        },
+        yAxis: {
+          type: 'category',
+          data: ['张三', '李四', '王五', '赵六'],
+          name: '发言人',
+          nameLocation: 'middle',
+          nameGap: 30
+        },
+        series: [{
+          name: '情感值',
+          type: 'heatmap',
+          data: [
+            [0, 0, 0.85], [1, 0, -0.90], [2, 0, 0.45], [3, 0, -0.20],
+            [0, 1, 0.70], [1, 1, 0.65], [2, 1, 0.75],
+            [0, 2, 0.80], [1, 2, -0.85], [2, 2, -0.30], [3, 2, 0.00]
+          ],
+          label: { show: true, formatter: function(params) {
+            const v = params.value[2];
+            if (v > 0.7) return '强支';
+            if (v > 0.3) return '支';
+            if (v > -0.3) return '中';
+            if (v > -0.8) return '?';
+            return '反';
+          }},
+          emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)' } },
+          color: ['#dc143c', '#ffa500', '#008000', '#0000ff']
+        }]
+      };
+      myChart.setOption(option);
+      
+      window.addEventListener('resize', () => myChart.resize());
+    }
+    
+    function handleHeatmap() {
+      initHeatmap();
+      message('情绪热力图已生成', 'info');
+    }
+    
+    // 搜索功能
+    function handleSearch() {
+      const query = document.getElementById('searchInput').value;
+      if (!query || query.trim().length < 2) {
+        alert('请输入至少2个字符的搜索关键词');
+        return;
+      }
+      
+      const results = [
+        { meeting_id: 1, title: '2026年第三季度经营分析会', snippet: '关于预算调整和Q3计划的讨论，存在一定分歧，分歧指数1.75', score: '87%', date: '2026-07-28' },
+        { meeting_id: 2, title: '项目评审会会议纪要', snippet: '讨论了多个项目的可行性评估结果和风险点识别', score: '82%', date: '2026-07-25' },
+        { meeting_id: 3, title: '跨部门协调会记录', snippet: '涉及人力资源、财务和市场部的多方沟通与协作安排', score: '79%', date: '2026-07-20' }
+      ];
+      
+      let html = '<h4 style="margin-bottom: 12px;">搜索结果 (' + results.length + ')</h4>';
+      results.forEach(r => {
+        html += `
+          <div style="padding: 12px; border: 1px solid #e8e8e8; border-radius: 4px; margin-bottom: 8px;">
+            <div style="font-weight: 500; color: #1890ff;">${r.title}</div>
+            <div style="color: #666; font-size: 13px; margin: 4px 0;">${r.snippet}</div>
+            <div style="color: #888; font-size: 12px;">匹配度 ${r.score} | ${r.date}</div>
+          </div>
+        `;
+      });
+      document.getElementById('searchResults').innerHTML = html;
+    }
+    
+    // 简易消息提示
+    function message(text, type = 'info') {
+      const div = document.createElement('div');
+      div.style.cssText = `position:fixed;top:20px;left:50%;transform:translateX(-50%);background:${type==='success'?'#52c41a':type==='error'?'#f5222d':'#1890ff'};color:#fff;padding:12px 24px;border-radius:4px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.15);`;
+      div.textContent = text;
+      document.body.appendChild(div);
+      setTimeout(() => div.remove(), 2000);
+    }
+    
+    // 初始化
+    window.onload = function() {
+      // 默认显示转写页
+    };
+  </script>
+</body>
+</html>
